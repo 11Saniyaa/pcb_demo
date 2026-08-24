@@ -28,6 +28,11 @@ env/
 outputs/
 runs/
 generated_data/
+data/augmented/demo/
+
+# Frontend
+frontend/node_modules/
+frontend/dist/
 
 # Operating-system files
 .DS_Store

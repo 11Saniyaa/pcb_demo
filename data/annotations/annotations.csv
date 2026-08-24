@@ -5,14 +5,47 @@ pcb_01.png,resistor,310,478,71,23
 pcb_01.png,capacitor,536,338,56,22
 pcb_01.png,diode,353,223,120,42
 
+pcb_02.png,IC,340,270,160,160
+pcb_02.png,resistor,420,435,40,14
+pcb_02.png,capacitor,355,250,36,16
+pcb_02.png,diode,505,350,40,18
+
+pcb_03.png,IC,450,400,125,110
+pcb_03.png,resistor,400,510,28,14
+pcb_03.png,capacitor,625,560,28,16
+pcb_03.png,diode,430,390,36,16
 
 pcb_04.png,IC,1347,548,480,444
 pcb_04.png,resistor,605,500,137,49
 pcb_04.png,capacitor,1313,331,263,99
 pcb_04.png,diode,1042,307,74,160
 
+pcb_05.png,IC,585,605,70,65
+pcb_05.png,resistor,400,400,28,12
+pcb_05.png,capacitor,550,500,24,16
+pcb_05.png,diode,450,550,30,18
+
+pcb_06.png,IC,290,300,100,125
+pcb_06.png,resistor,410,360,28,12
+pcb_06.png,capacitor,400,330,24,16
+pcb_06.png,diode,255,380,30,16
+
+pcb_07.png,IC,500,255,75,85
+pcb_07.png,resistor,580,270,26,12
+pcb_07.png,capacitor,560,250,22,14
+pcb_07.png,diode,530,350,28,14
+
+pcb_08.png,IC,500,190,180,200
+pcb_08.png,resistor,400,320,25,14
+pcb_08.png,capacitor,325,140,50,55
+pcb_08.png,diode,375,140,75,55
 
 pcb_09.png,IC,1214,320,246,216
 pcb_09.png,resistor,1644,998,136,56
 pcb_09.png,capacitor,1020,482,136,160
 pcb_09.png,diode,995,392,50,23
+
+pcb_10.png,IC,405,285,220,225
+pcb_10.png,resistor,380,400,32,14
+pcb_10.png,capacitor,640,400,26,16
+pcb_10.png,diode,380,360,32,14
