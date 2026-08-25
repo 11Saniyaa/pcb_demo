@@ -1,16 +1,54 @@
 from pathlib import Path
+import subprocess
+import sys
 import csv
 
 import cv2
 import numpy as np
 
-
 # ==================================================
 # SETTINGS
 # ==================================================
 
-# Change only this value for another PCB image
-PCB_NAME = "pcb_09"
+# PCBs that will be processed automatically
+PCB_NAMES = [
+    
+    "pcb_08",
+]
+
+
+# When the script is started normally,
+# run it separately for every PCB.
+if len(sys.argv) == 1:
+
+    print("\n======================================")
+    print("      PCB BATCH PROCESSING STARTED")
+    print("======================================")
+
+    for pcb_name in PCB_NAMES:
+
+        print("\nProcessing:", pcb_name)
+
+        subprocess.run(
+            [
+                sys.executable,
+                str(Path(__file__).resolve()),
+                pcb_name,
+            ],
+            check=True,
+        )
+
+    print("\n======================================")
+    print("      PCB BATCH PROCESSING FINISHED")
+    print("======================================\n")
+
+    sys.exit(0)
+
+
+# During each individual run, obtain the PCB
+# name passed by the batch section above.
+PCB_NAME = sys.argv[1]
+
 
 SUPPORTED_COMPONENTS = {
     "ic",
@@ -53,6 +91,12 @@ COMPONENT_CONFIG = {
 SHOW_PREVIEWS = True
 SAVE_DEBUG_IMAGES = True
 
+# Red box settings
+BOX_COLOUR = (0, 0, 255)
+BOX_THICKNESS = 3
+BOX_PADDING_RATIO = 0.15
+MINIMUM_BOX_PADDING = 12
+
 
 print("\n======================================")
 print("  PCB COMPONENT PIPELINE STARTED")
@@ -65,52 +109,86 @@ print("======================================\n")
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
-image_path = (
+ORIGINALS_DIR = (
     PROJECT_ROOT
     / "data"
     / "originals"
-    / f"{PCB_NAME}.png"
 )
 
-annotations_path = (
+ANNOTATIONS_PATH = (
     PROJECT_ROOT
     / "data"
     / "annotations"
     / "annotations.csv"
 )
 
-output_folder = (
+OUTPUT_FOLDER = (
     PROJECT_ROOT
     / "data"
     / "augmented"
     / PCB_NAME
 )
 
-debug_folder = output_folder / "debug"
+DEBUG_FOLDER = OUTPUT_FOLDER / "debug"
 
-metadata_path = (
+METADATA_PATH = (
     PROJECT_ROOT
     / "data"
     / "augmented"
     / "augmentation_metadata.csv"
 )
 
-output_folder.mkdir(
+OUTPUT_FOLDER.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+METADATA_PATH.parent.mkdir(
     parents=True,
     exist_ok=True
 )
 
 if SAVE_DEBUG_IMAGES:
-    debug_folder.mkdir(
+    DEBUG_FOLDER.mkdir(
         parents=True,
         exist_ok=True
     )
 
-print("PCB             :", PCB_NAME)
-print("Image           :", image_path)
-print("Annotations     :", annotations_path)
-print("Output folder   :", output_folder)
-print("Metadata        :", metadata_path)
+
+def find_image_path():
+    """
+    Find the selected PCB regardless of whether
+    it is stored as JPG, JPEG or PNG.
+    """
+
+    possible_extensions = [
+        ".jpg",
+        ".jpeg",
+        ".png",
+    ]
+
+    for extension in possible_extensions:
+        candidate = (
+            ORIGINALS_DIR
+            / f"{PCB_NAME}{extension}"
+        )
+
+        if candidate.exists():
+            return candidate
+
+    raise FileNotFoundError(
+        f"Could not find {PCB_NAME} with "
+        f"extensions: {possible_extensions}"
+    )
+
+
+image_path = find_image_path()
+
+print("PCB           :", PCB_NAME)
+print("Image         :", image_path)
+print("Annotations   :", ANNOTATIONS_PATH)
+print("Output folder :", OUTPUT_FOLDER)
+print("Metadata      :", METADATA_PATH)
 
 
 # ==================================================
@@ -123,27 +201,35 @@ image = cv2.imread(str(image_path))
 
 if image is None:
     raise FileNotFoundError(
-        f"Could not load image: {image_path}"
+        f"OpenCV could not load: {image_path}"
     )
 
 image_height, image_width = image.shape[:2]
 
-print("✓ Image loaded")
-print("  Dimensions:", image.shape)
+print("Image loaded successfully")
+print("Dimensions:", image_width, "x", image_height)
 
 
 # ==================================================
 # 3. LOAD ANNOTATIONS
 # ==================================================
 
-def load_annotations(csv_file, selected_image):
+def load_annotations(
+    csv_file,
+    selected_image,
+):
     matched_annotations = []
+
+    if not csv_file.exists():
+        raise FileNotFoundError(
+            f"Annotation file not found: {csv_file}"
+        )
 
     with open(
         csv_file,
         "r",
         newline="",
-        encoding="utf-8"
+        encoding="utf-8",
     ) as file:
 
         reader = csv.DictReader(file)
@@ -157,8 +243,12 @@ def load_annotations(csv_file, selected_image):
             "height",
         }
 
+        existing_columns = set(
+            reader.fieldnames or []
+        )
+
         if not required_columns.issubset(
-            set(reader.fieldnames or [])
+            existing_columns
         ):
             raise ValueError(
                 "annotations.csv does not contain "
@@ -166,17 +256,21 @@ def load_annotations(csv_file, selected_image):
             )
 
         for row in reader:
+            row_image = (
+                row["image"]
+                .strip()
+            )
+
             component = (
                 row["component"]
                 .strip()
                 .lower()
             )
 
-            row_image = row["image"].strip()
-
             if (
                 row_image == selected_image
-                and component in SUPPORTED_COMPONENTS
+                and component
+                in SUPPORTED_COMPONENTS
             ):
                 matched_annotations.append({
                     "image": row_image,
@@ -193,23 +287,23 @@ def load_annotations(csv_file, selected_image):
 print("\n[2/7] Reading annotations...")
 
 annotations = load_annotations(
-    annotations_path,
-    image_path.name
+    ANNOTATIONS_PATH,
+    image_path.name,
 )
 
 if not annotations:
     raise ValueError(
-        f"No supported component annotations found "
-        f"for {image_path.name}"
+        "No supported component annotations "
+        f"found for {image_path.name}"
     )
 
 print(
-    f"✓ Found {len(annotations)} annotation(s)"
+    f"Found {len(annotations)} annotation(s)"
 )
 
 for annotation in annotations:
     print(
-        f"  {annotation['component']:10s} "
+        f"{annotation['component']:10s} "
         f"({annotation['x']}, "
         f"{annotation['y']}, "
         f"{annotation['width']}, "
@@ -218,51 +312,59 @@ for annotation in annotations:
 
 
 # ==================================================
-# 4. MASK FUNCTIONS
+# 4. SEGMENTATION FUNCTIONS
 # ==================================================
 
-def clean_binary_mask(binary_mask, config):
+def clean_binary_mask(
+    binary_mask,
+    config,
+):
     kernel_size = config["kernel_size"]
 
     kernel = np.ones(
         (kernel_size, kernel_size),
-        dtype=np.uint8
+        dtype=np.uint8,
     )
 
     cleaned = cv2.morphologyEx(
         binary_mask,
         cv2.MORPH_OPEN,
         kernel,
-        iterations=config["open_iterations"]
+        iterations=config[
+            "open_iterations"
+        ],
     )
 
     cleaned = cv2.morphologyEx(
         cleaned,
         cv2.MORPH_CLOSE,
         kernel,
-        iterations=config["close_iterations"]
+        iterations=config[
+            "close_iterations"
+        ],
     )
 
     return cleaned
 
 
-def contour_score(contour, mask_shape):
-    """
-    Prefer contours with a reasonable size
-    located near the centre of the ROI.
-    """
-
+def contour_score(
+    contour,
+    mask_shape,
+):
     roi_height, roi_width = mask_shape
+
     roi_area = roi_height * roi_width
+    contour_area = cv2.contourArea(contour)
 
-    area = cv2.contourArea(contour)
-
-    if area <= 0:
+    if contour_area <= 0:
         return -1
 
-    area_ratio = area / roi_area
+    area_ratio = contour_area / roi_area
 
-    if area_ratio < 0.02 or area_ratio > 0.95:
+    if (
+        area_ratio < 0.02
+        or area_ratio > 0.95
+    ):
         return -1
 
     moments = cv2.moments(contour)
@@ -271,11 +373,13 @@ def contour_score(contour, mask_shape):
         return -1
 
     contour_x = (
-        moments["m10"] / moments["m00"]
+        moments["m10"]
+        / moments["m00"]
     )
 
     contour_y = (
-        moments["m01"] / moments["m00"]
+        moments["m01"]
+        / moments["m00"]
     )
 
     roi_center_x = roi_width / 2
@@ -295,36 +399,36 @@ def contour_score(contour, mask_shape):
         return -1
 
     centre_score = (
-        1 - (distance / maximum_distance)
+        1 - distance / maximum_distance
     )
 
     return (
-        (area_ratio * 0.7)
-        + (centre_score * 0.3)
+        area_ratio * 0.7
+        + centre_score * 0.3
     )
 
 
 def create_candidate_mask(
     gray,
     threshold_type,
-    config
+    config,
 ):
     otsu_value, binary_mask = cv2.threshold(
         gray,
         0,
         255,
-        threshold_type + cv2.THRESH_OTSU
+        threshold_type + cv2.THRESH_OTSU,
     )
 
     binary_mask = clean_binary_mask(
         binary_mask,
-        config
+        config,
     )
 
     contours, _ = cv2.findContours(
         binary_mask,
         cv2.RETR_EXTERNAL,
-        cv2.CHAIN_APPROX_SIMPLE
+        cv2.CHAIN_APPROX_SIMPLE,
     )
 
     if not contours:
@@ -336,7 +440,7 @@ def create_candidate_mask(
     for contour in contours:
         score = contour_score(
             contour,
-            binary_mask.shape
+            binary_mask.shape,
         )
 
         if score > best_score:
@@ -355,7 +459,7 @@ def create_candidate_mask(
         [best_contour],
         -1,
         255,
-        thickness=cv2.FILLED
+        thickness=cv2.FILLED,
     )
 
     if config["dilate_iterations"] > 0:
@@ -363,26 +467,24 @@ def create_candidate_mask(
             final_mask,
             np.ones(
                 (3, 3),
-                dtype=np.uint8
+                dtype=np.uint8,
             ),
             iterations=config[
                 "dilate_iterations"
-            ]
+            ],
         )
 
     return (
         final_mask,
         best_score,
-        otsu_value
+        otsu_value,
     )
 
 
-def create_grabcut_mask(roi, config):
-    """
-    Fallback for components such as large ICs
-    when Otsu thresholding cannot isolate them.
-    """
-
+def create_grabcut_mask(
+    roi,
+    config,
+):
     roi_height, roi_width = roi.shape[:2]
 
     if roi_height < 5 or roi_width < 5:
@@ -390,35 +492,35 @@ def create_grabcut_mask(roi, config):
 
     grabcut_mask = np.zeros(
         (roi_height, roi_width),
-        dtype=np.uint8
+        dtype=np.uint8,
     )
 
     background_model = np.zeros(
         (1, 65),
-        dtype=np.float64
+        dtype=np.float64,
     )
 
     foreground_model = np.zeros(
         (1, 65),
-        dtype=np.float64
+        dtype=np.float64,
     )
 
     margin_x = max(
         2,
-        int(roi_width * 0.02)
+        int(roi_width * 0.02),
     )
 
     margin_y = max(
         2,
-        int(roi_height * 0.02)
+        int(roi_height * 0.02),
     )
 
     rectangle_width = (
-        roi_width - (2 * margin_x)
+        roi_width - 2 * margin_x
     )
 
     rectangle_height = (
-        roi_height - (2 * margin_y)
+        roi_height - 2 * margin_y
     )
 
     if (
@@ -431,7 +533,7 @@ def create_grabcut_mask(roi, config):
         margin_x,
         margin_y,
         rectangle_width,
-        rectangle_height
+        rectangle_height,
     )
 
     try:
@@ -442,7 +544,7 @@ def create_grabcut_mask(roi, config):
             background_model,
             foreground_model,
             5,
-            cv2.GC_INIT_WITH_RECT
+            cv2.GC_INIT_WITH_RECT,
         )
 
     except cv2.error:
@@ -455,22 +557,22 @@ def create_grabcut_mask(roi, config):
             == cv2.GC_PR_FGD
         ),
         255,
-        0
+        0,
     ).astype(np.uint8)
 
     kernel = np.ones(
         (
             config["kernel_size"],
-            config["kernel_size"]
+            config["kernel_size"],
         ),
-        dtype=np.uint8
+        dtype=np.uint8,
     )
 
     final_mask = cv2.morphologyEx(
         final_mask,
         cv2.MORPH_CLOSE,
         kernel,
-        iterations=1
+        iterations=1,
     )
 
     if config["dilate_iterations"] > 0:
@@ -478,11 +580,11 @@ def create_grabcut_mask(roi, config):
             final_mask,
             np.ones(
                 (3, 3),
-                dtype=np.uint8
+                dtype=np.uint8,
             ),
             iterations=config[
                 "dilate_iterations"
-            ]
+            ],
         )
 
     foreground_ratio = (
@@ -501,7 +603,7 @@ def create_grabcut_mask(roi, config):
 
 def segment_component(
     roi,
-    component_name
+    component_name,
 ):
     config = COMPONENT_CONFIG[
         component_name
@@ -509,108 +611,80 @@ def segment_component(
 
     gray = cv2.cvtColor(
         roi,
-        cv2.COLOR_BGR2GRAY
+        cv2.COLOR_BGR2GRAY,
     )
 
     threshold_mode = config[
         "threshold_mode"
     ]
 
-    if threshold_mode == "inverse":
-        mask, score, threshold = (
-            create_candidate_mask(
-                gray,
-                cv2.THRESH_BINARY_INV,
-                config
-            )
-        )
+    candidates = []
 
-        if mask is not None:
-            return (
-                mask,
-                threshold,
-                "inverse",
-                score
-            )
-
-    elif threshold_mode == "normal":
-        mask, score, threshold = (
-            create_candidate_mask(
-                gray,
-                cv2.THRESH_BINARY,
-                config
-            )
-        )
-
-        if mask is not None:
-            return (
-                mask,
-                threshold,
-                "normal",
-                score
-            )
-
-    else:
+    if threshold_mode in {
+        "auto",
+        "normal",
+    }:
         (
             normal_mask,
             normal_score,
-            normal_threshold
+            normal_threshold,
         ) = create_candidate_mask(
             gray,
             cv2.THRESH_BINARY,
-            config
+            config,
         )
-
-        (
-            inverse_mask,
-            inverse_score,
-            inverse_threshold
-        ) = create_candidate_mask(
-            gray,
-            cv2.THRESH_BINARY_INV,
-            config
-        )
-
-        valid_candidates = []
 
         if normal_mask is not None:
-            valid_candidates.append({
+            candidates.append({
                 "mask": normal_mask,
                 "score": normal_score,
                 "threshold": normal_threshold,
                 "method": "normal",
             })
 
+    if threshold_mode in {
+        "auto",
+        "inverse",
+    }:
+        (
+            inverse_mask,
+            inverse_score,
+            inverse_threshold,
+        ) = create_candidate_mask(
+            gray,
+            cv2.THRESH_BINARY_INV,
+            config,
+        )
+
         if inverse_mask is not None:
-            valid_candidates.append({
+            candidates.append({
                 "mask": inverse_mask,
                 "score": inverse_score,
                 "threshold": inverse_threshold,
                 "method": "inverse",
             })
 
-        if valid_candidates:
-            best_candidate = max(
-                valid_candidates,
-                key=lambda candidate:
-                candidate["score"]
-            )
+    if candidates:
+        best_candidate = max(
+            candidates,
+            key=lambda item: item["score"],
+        )
 
-            return (
-                best_candidate["mask"],
-                best_candidate["threshold"],
-                best_candidate["method"],
-                best_candidate["score"]
-            )
+        return (
+            best_candidate["mask"],
+            best_candidate["threshold"],
+            best_candidate["method"],
+            best_candidate["score"],
+        )
 
     print(
-        f"  ! Otsu failed for "
-        f"{component_name}; trying GrabCut..."
+        f"Otsu failed for {component_name}. "
+        "Trying GrabCut..."
     )
 
     grabcut_mask = create_grabcut_mask(
         roi,
-        config
+        config,
     )
 
     if grabcut_mask is not None:
@@ -618,14 +692,14 @@ def segment_component(
             grabcut_mask,
             -1,
             "grabcut",
-            0.5
+            0.5,
         )
 
     return None, -1, "failed", -1
 
 
 # ==================================================
-# 5. IMAGE MANIPULATION FUNCTIONS
+# 5. IMAGE MANIPULATION
 # ==================================================
 
 def remove_original_component(
@@ -634,32 +708,32 @@ def remove_original_component(
     x,
     y,
     width,
-    height
+    height,
 ):
     full_mask = np.zeros(
         original_image.shape[:2],
-        dtype=np.uint8
+        dtype=np.uint8,
     )
 
     full_mask[
         y:y + height,
-        x:x + width
+        x:x + width,
     ] = component_mask
 
     full_mask = cv2.dilate(
         full_mask,
         np.ones(
             (5, 5),
-            dtype=np.uint8
+            dtype=np.uint8,
         ),
-        iterations=1
+        iterations=1,
     )
 
     background = cv2.inpaint(
         original_image,
         full_mask,
         3,
-        cv2.INPAINT_TELEA
+        cv2.INPAINT_TELEA,
     )
 
     return background
@@ -670,7 +744,7 @@ def paste_component(
     component_roi,
     component_mask,
     new_x,
-    new_y
+    new_y,
 ):
     result = base_image.copy()
 
@@ -694,38 +768,33 @@ def paste_component(
 
     destination = result[
         new_y:new_y + component_height,
-        new_x:new_x + component_width
+        new_x:new_x + component_width,
     ]
 
     inverse_mask = cv2.bitwise_not(
         component_mask
     )
 
-    destination_background = (
-        cv2.bitwise_and(
-            destination,
-            destination,
-            mask=inverse_mask
-        )
+    destination_background = cv2.bitwise_and(
+        destination,
+        destination,
+        mask=inverse_mask,
     )
 
-    # Preserve the original component colours
-    component_foreground = (
-        cv2.bitwise_and(
-            component_roi,
-            component_roi,
-            mask=component_mask
-        )
+    component_foreground = cv2.bitwise_and(
+        component_roi,
+        component_roi,
+        mask=component_mask,
     )
 
     combined = cv2.add(
         destination_background,
-        component_foreground
+        component_foreground,
     )
 
     result[
         new_y:new_y + component_height,
-        new_x:new_x + component_width
+        new_x:new_x + component_width,
     ] = combined
 
     return result
@@ -734,58 +803,46 @@ def paste_component(
 def rotate_component_expanded(
     component_roi,
     component_mask,
-    angle
+    angle,
 ):
-    """
-    Rotate while expanding the canvas so that
-    no part of the component is clipped.
-    """
-
     height, width = component_roi.shape[:2]
 
     center = (
         width / 2,
-        height / 2
+        height / 2,
     )
 
     rotation_matrix = (
         cv2.getRotationMatrix2D(
             center,
             angle,
-            1.0
+            1.0,
         )
     )
 
-    cosine = abs(
-        rotation_matrix[0, 0]
-    )
-
-    sine = abs(
-        rotation_matrix[0, 1]
-    )
+    cosine = abs(rotation_matrix[0, 0])
+    sine = abs(rotation_matrix[0, 1])
 
     new_width = int(
         np.ceil(
-            (height * sine)
-            + (width * cosine)
+            height * sine
+            + width * cosine
         )
     )
 
     new_height = int(
         np.ceil(
-            (height * cosine)
-            + (width * sine)
+            height * cosine
+            + width * sine
         )
     )
 
     rotation_matrix[0, 2] += (
-        new_width / 2
-        - center[0]
+        new_width / 2 - center[0]
     )
 
     rotation_matrix[1, 2] += (
-        new_height / 2
-        - center[1]
+        new_height / 2 - center[1]
     )
 
     rotated_roi = cv2.warpAffine(
@@ -794,7 +851,7 @@ def rotate_component_expanded(
         (new_width, new_height),
         flags=cv2.INTER_LINEAR,
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=(0, 0, 0)
+        borderValue=(0, 0, 0),
     )
 
     rotated_mask = cv2.warpAffine(
@@ -803,18 +860,134 @@ def rotate_component_expanded(
         (new_width, new_height),
         flags=cv2.INTER_NEAREST,
         borderMode=cv2.BORDER_CONSTANT,
-        borderValue=0
+        borderValue=0,
     )
 
-    # Ensure the mask remains binary
     _, rotated_mask = cv2.threshold(
         rotated_mask,
         127,
         255,
-        cv2.THRESH_BINARY
+        cv2.THRESH_BINARY,
     )
 
     return rotated_roi, rotated_mask
+
+
+def draw_defect_box(
+    generated_image,
+    component_name,
+    augmentation_type,
+    new_x,
+    new_y,
+    width,
+    height,
+):
+    """
+    Draw a red box larger than the transformed
+    component directly on the demo output.
+    """
+
+    boxed_image = generated_image.copy()
+
+    current_height, current_width = (
+        boxed_image.shape[:2]
+    )
+
+    padding = max(
+        MINIMUM_BOX_PADDING,
+        round(
+            max(width, height)
+            * BOX_PADDING_RATIO
+        ),
+    )
+
+    box_x1 = max(
+        0,
+        new_x - padding,
+    )
+
+    box_y1 = max(
+        0,
+        new_y - padding,
+    )
+
+    box_x2 = min(
+        current_width - 1,
+        new_x + width + padding,
+    )
+
+    box_y2 = min(
+        current_height - 1,
+        new_y + height + padding,
+    )
+
+    cv2.rectangle(
+        boxed_image,
+        (box_x1, box_y1),
+        (box_x2, box_y2),
+        BOX_COLOUR,
+        BOX_THICKNESS,
+    )
+
+    label = (
+        f"DEFECT: "
+        f"{component_name.upper()} "
+        f"{augmentation_type.upper()}"
+    )
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    text_thickness = 2
+
+    (
+        text_width,
+        text_height,
+    ), baseline = cv2.getTextSize(
+        label,
+        font,
+        font_scale,
+        text_thickness,
+    )
+
+    label_x1 = box_x1
+    label_y2 = box_y1
+
+    label_y1 = max(
+        0,
+        label_y2 - text_height - 12,
+    )
+
+    label_x2 = min(
+        current_width - 1,
+        label_x1 + text_width + 10,
+    )
+
+    # Filled red background behind text
+    cv2.rectangle(
+        boxed_image,
+        (label_x1, label_y1),
+        (label_x2, label_y2),
+        BOX_COLOUR,
+        thickness=cv2.FILLED,
+    )
+
+    text_y = max(
+        text_height,
+        label_y2 - 6,
+    )
+
+    cv2.putText(
+        boxed_image,
+        label,
+        (label_x1 + 5, text_y),
+        font,
+        font_scale,
+        (255, 255, 255),
+        text_thickness,
+        cv2.LINE_AA,
+    )
+
+    return boxed_image
 
 
 # ==================================================
@@ -841,21 +1014,19 @@ new_metadata_rows = []
 def update_metadata_file():
     existing_rows = []
 
-    if metadata_path.exists():
+    if METADATA_PATH.exists():
         with open(
-            metadata_path,
+            METADATA_PATH,
             "r",
             newline="",
-            encoding="utf-8"
+            encoding="utf-8",
         ) as file:
 
             reader = csv.DictReader(file)
 
             for row in reader:
-                # Remove previous metadata for the
-                # currently selected PCB.
                 if (
-                    row["original_image"]
+                    row.get("original_image")
                     != image_path.name
                 ):
                     existing_rows.append([
@@ -865,10 +1036,10 @@ def update_metadata_file():
                     ])
 
     with open(
-        metadata_path,
+        METADATA_PATH,
         "w",
         newline="",
-        encoding="utf-8"
+        encoding="utf-8",
     ) as file:
 
         writer = csv.writer(file)
@@ -879,7 +1050,7 @@ def update_metadata_file():
 
 
 # ==================================================
-# 7. PROCESS ALL COMPONENTS
+# 7. PROCESS COMPONENTS
 # ==================================================
 
 print("\n[3/7] Processing components...")
@@ -895,7 +1066,7 @@ for annotation in annotations:
     component_counts[component_name] = (
         component_counts.get(
             component_name,
-            0
+            0,
         ) + 1
     )
 
@@ -910,12 +1081,11 @@ for annotation in annotations:
 
     print("\n--------------------------------------")
     print(
-        f"Processing: {component_name} "
+        f"Processing {component_name} "
         f"instance {instance_number}"
     )
     print("--------------------------------------")
 
-    # Validate the annotation
     if (
         x < 0
         or y < 0
@@ -924,33 +1094,28 @@ for annotation in annotations:
         or x + width > image_width
         or y + height > image_height
     ):
-        print(
-            "✗ Invalid bounding box. Skipping."
-        )
+        print("Invalid bounding box. Skipping.")
         continue
 
-    # Original colour ROI
     roi = image[
         y:y + height,
-        x:x + width
+        x:x + width,
     ].copy()
 
-    print("✓ ROI cropped:", roi.shape)
+    print("ROI cropped:", roi.shape)
 
     (
         mask,
         threshold_value,
         segmentation_method,
-        mask_score
+        mask_score,
     ) = segment_component(
         roi,
-        component_name
+        component_name,
     )
 
     if mask is None:
-        print(
-            "✗ Could not create mask. Skipping."
-        )
+        print("Could not create mask. Skipping.")
         continue
 
     foreground_ratio = (
@@ -958,43 +1123,29 @@ for annotation in annotations:
         / (width * height)
     )
 
-    print("✓ Mask generated")
+    print("Mask generated")
+    print("Method:", segmentation_method)
+    print("Score:", round(mask_score, 3))
+    print(
+        "Foreground ratio:",
+        round(foreground_ratio, 3),
+    )
 
     if threshold_value >= 0:
         print(
-            "  Otsu threshold :",
-            round(threshold_value, 2)
+            "Otsu threshold:",
+            round(threshold_value, 2),
         )
-    else:
-        print(
-            "  Otsu threshold : not used"
-        )
-
-    print(
-        "  Method         :",
-        segmentation_method
-    )
-
-    print(
-        "  Mask score     :",
-        round(mask_score, 3)
-    )
-
-    print(
-        "  Foreground     :",
-        round(foreground_ratio, 3)
-    )
 
     if (
         foreground_ratio < 0.02
         or foreground_ratio > 0.98
     ):
         print(
-            "✗ Suspicious mask area. Skipping."
+            "Suspicious mask area. Skipping."
         )
         continue
 
-    # Save segmentation debug images
     if SAVE_DEBUG_IMAGES:
         debug_prefix = (
             f"{PCB_NAME}_"
@@ -1002,83 +1153,62 @@ for annotation in annotations:
             f"{instance_number:02d}"
         )
 
-        extracted_preview = (
-            cv2.bitwise_and(
-                roi,
-                roi,
-                mask=mask
-            )
+        extracted_preview = cv2.bitwise_and(
+            roi,
+            roi,
+            mask=mask,
         )
 
         cv2.imwrite(
             str(
-                debug_folder
+                DEBUG_FOLDER
                 / f"{debug_prefix}_roi.png"
             ),
-            roi
+            roi,
         )
 
         cv2.imwrite(
             str(
-                debug_folder
+                DEBUG_FOLDER
                 / f"{debug_prefix}_mask.png"
             ),
-            mask
+            mask,
         )
 
         cv2.imwrite(
             str(
-                debug_folder
-                / (
-                    f"{debug_prefix}_"
-                    f"extracted.png"
-                )
+                DEBUG_FOLDER
+                / f"{debug_prefix}_extracted.png"
             ),
-            extracted_preview
+            extracted_preview,
         )
 
-    # Remove the original component once
+    # Remove the selected component only from
+    # an in-memory copy. Original file is untouched.
     background = remove_original_component(
         image,
         mask,
         x,
         y,
         width,
-        height
+        height,
     )
 
     augmentations = []
 
-    # ----------------------------------------------
-    # AUGMENTATION 1: ROTATE +5 DEGREES
-    # ----------------------------------------------
-
+    # --------------------------------------------------
+    # 1. ROTATE 5 DEGREES
+    # --------------------------------------------------
     rotated_5_roi, rotated_5_mask = (
         rotate_component_expanded(
             roi,
             mask,
-            5
+            5,
         )
     )
 
     rotated_5_height, rotated_5_width = (
         rotated_5_roi.shape[:2]
-    )
-
-    rotated_5_x = (
-        x
-        - (
-            rotated_5_width
-            - width
-        ) // 2
-    )
-
-    rotated_5_y = (
-        y
-        - (
-            rotated_5_height
-            - height
-        ) // 2
     )
 
     augmentations.append({
@@ -1087,27 +1217,22 @@ for annotation in annotations:
         "type": "rotate",
         "parameter": "+5 degrees",
         "suffix": "rotate_05",
-        "new_x": rotated_5_x,
-        "new_y": rotated_5_y,
+        "new_x": (
+            x
+            - (rotated_5_width - width) // 2
+        ),
+        "new_y": (
+            y
+            - (rotated_5_height - height) // 2
+        ),
     })
 
-    # ----------------------------------------------
-    # AUGMENTATION 2: HORIZONTAL FLIP
-    # ----------------------------------------------
-
-    flipped_roi = cv2.flip(
-        roi,
-        1
-    )
-
-    flipped_mask = cv2.flip(
-        mask,
-        1
-    )
-
+    # --------------------------------------------------
+    # 2. HORIZONTAL FLIP
+    # --------------------------------------------------
     augmentations.append({
-        "image": flipped_roi,
-        "mask": flipped_mask,
+        "image": cv2.flip(roi, 1),
+        "mask": cv2.flip(mask, 1),
         "type": "flip",
         "parameter": "horizontal",
         "suffix": "flip_horizontal",
@@ -1115,10 +1240,9 @@ for annotation in annotations:
         "new_y": y,
     })
 
-    # ----------------------------------------------
-    # AUGMENTATION 3: MOVE +10 PIXELS
-    # ----------------------------------------------
-
+    # --------------------------------------------------
+    # 3. MOVE 10 PIXELS
+    # --------------------------------------------------
     augmentations.append({
         "image": roi.copy(),
         "mask": mask.copy(),
@@ -1129,10 +1253,9 @@ for annotation in annotations:
         "new_y": y,
     })
 
-    # ----------------------------------------------
-    # AUGMENTATION 4: MOVE +25 PIXELS
-    # ----------------------------------------------
-
+    # --------------------------------------------------
+    # 4. MOVE 25 PIXELS
+    # --------------------------------------------------
     augmentations.append({
         "image": roi.copy(),
         "mask": mask.copy(),
@@ -1143,37 +1266,19 @@ for annotation in annotations:
         "new_y": y,
     })
 
-    # ----------------------------------------------
-    # AUGMENTATION 5: ROTATE +15 DEGREES
-    # ----------------------------------------------
-
+    # --------------------------------------------------
+    # 5. ROTATE 15 DEGREES
+    # --------------------------------------------------
     rotated_15_roi, rotated_15_mask = (
         rotate_component_expanded(
             roi,
             mask,
-            15
+            15,
         )
     )
 
-    (
-        rotated_15_height,
-        rotated_15_width
-    ) = rotated_15_roi.shape[:2]
-
-    rotated_15_x = (
-        x
-        - (
-            rotated_15_width
-            - width
-        ) // 2
-    )
-
-    rotated_15_y = (
-        y
-        - (
-            rotated_15_height
-            - height
-        ) // 2
+    rotated_15_height, rotated_15_width = (
+        rotated_15_roi.shape[:2]
     )
 
     augmentations.append({
@@ -1182,16 +1287,21 @@ for annotation in annotations:
         "type": "rotate",
         "parameter": "+15 degrees",
         "suffix": "rotate_15",
-        "new_x": rotated_15_x,
-        "new_y": rotated_15_y,
+        "new_x": (
+            x
+            - (rotated_15_width - width) // 2
+        ),
+        "new_y": (
+            y
+            - (rotated_15_height - height) // 2
+        ),
     })
-
-    # ----------------------------------------------
-    # PASTE AND SAVE ALL FIVE
-    # ----------------------------------------------
 
     generated_for_component = 0
 
+    # ==================================================
+    # PASTE, DRAW RED BOX AND SAVE
+    # ==================================================
     for augmentation in augmentations:
         augmented_component = (
             augmentation["image"]
@@ -1214,16 +1324,34 @@ for annotation in annotations:
             augmented_component,
             augmented_mask,
             new_x,
-            new_y
+            new_y,
         )
 
         if result is None:
             print(
-                f"✗ Skipped "
-                f"{augmentation['suffix']}: "
+                f"Skipped {augmentation['suffix']}: "
                 "component crossed image boundary"
             )
             continue
+
+        (
+            augmented_height,
+            augmented_width,
+        ) = augmented_component.shape[:2]
+
+        # Draw the larger red defect box directly
+        # on the generated demo image.
+        boxed_result = draw_defect_box(
+            generated_image=result,
+            component_name=component_name,
+            augmentation_type=(
+                augmentation["type"]
+            ),
+            new_x=new_x,
+            new_y=new_y,
+            width=augmented_width,
+            height=augmented_height,
+        )
 
         filename = (
             f"{PCB_NAME}_"
@@ -1233,26 +1361,24 @@ for annotation in annotations:
         )
 
         output_path = (
-            output_folder / filename
+            OUTPUT_FOLDER / filename
         )
 
+        # Save the generated defective image
+        # with the red demo box.
         saved = cv2.imwrite(
             str(output_path),
-            result
+            boxed_result,
         )
 
         if not saved:
             print(
-                "✗ Could not save:",
-                output_path
+                "Could not save:",
+                output_path,
             )
             continue
 
-        print("✓ Generated:", filename)
-
-        augmented_height, augmented_width = (
-            augmented_component.shape[:2]
-        )
+        print("Generated:", filename)
 
         new_metadata_rows.append([
             image_path.name,
@@ -1274,15 +1400,14 @@ for annotation in annotations:
             "augmentation": (
                 augmentation["type"]
             ),
-            "result": result,
+            "result": boxed_result,
         })
 
         generated_for_component += 1
 
     print(
-        f"✓ Generated "
-        f"{generated_for_component}/5 images "
-        f"for {component_name}"
+        f"Generated {generated_for_component}/5 "
+        f"images for {component_name}"
     )
 
 
@@ -1294,7 +1419,7 @@ print("\n[4/7] Saving metadata...")
 
 update_metadata_file()
 
-print("✓ Metadata saved:", metadata_path)
+print("Metadata saved:", METADATA_PATH)
 
 
 # ==================================================
@@ -1304,13 +1429,12 @@ print("✓ Metadata saved:", metadata_path)
 print("\n[5/7] Generation summary")
 
 if not generated_results:
-    print(
-        "✗ No augmented images were generated"
-    )
+    print("No augmented images were generated.")
+
 else:
     for item in generated_results:
         print(
-            f"✓ {item['component']:10s} "
+            f"{item['component']:10s} "
             f"-> {item['name']}"
         )
 
@@ -1321,41 +1445,37 @@ else:
 
 if SHOW_PREVIEWS and generated_results:
     print("\n[6/7] Opening previews...")
-    print(
-        "Press any key to view the next image."
-    )
+    print("Press any key for the next image.")
 
     max_preview_width = 1000
     max_preview_height = 700
 
-    # Show one image at a time so that 20
-    # windows are not opened simultaneously.
     for index, item in enumerate(
         generated_results,
-        start=1
+        start=1,
     ):
-        result = item["result"]
+        generated_image = item["result"]
 
         result_height, result_width = (
-            result.shape[:2]
+            generated_image.shape[:2]
         )
 
         preview_scale = min(
             max_preview_width / result_width,
             max_preview_height / result_height,
-            1.0
+            1.0,
         )
 
         if preview_scale < 1.0:
             preview = cv2.resize(
-                result,
+                generated_image,
                 None,
                 fx=preview_scale,
                 fy=preview_scale,
-                interpolation=cv2.INTER_AREA
+                interpolation=cv2.INTER_AREA,
             )
         else:
-            preview = result.copy()
+            preview = generated_image.copy()
 
         window_name = (
             f"{index}/"
@@ -1365,18 +1485,22 @@ if SHOW_PREVIEWS and generated_results:
 
         cv2.imshow(
             window_name,
-            preview
+            preview,
         )
 
         cv2.waitKey(0)
-        cv2.destroyWindow(window_name)
+
+    try:
+        cv2.destroyAllWindows()
+    except cv2.error:
+        pass
 
     cv2.destroyAllWindows()
 
 else:
     print(
         "\n[6/7] Preview disabled "
-        "or no results"
+        "or no results."
     )
 
 
@@ -1390,34 +1514,18 @@ print("\n======================================")
 print("  PCB COMPONENT PIPELINE COMPLETED")
 print("======================================")
 
+print("Selected PCB      :", PCB_NAME)
+print("Original unchanged:", image_path)
+print("Annotations found :", len(annotations))
 print(
-    "Selected PCB       :",
-    PCB_NAME
+    "Images expected   :",
+    len(annotations) * 5,
 )
-
 print(
-    "Annotations found  :",
-    len(annotations)
+    "Images generated  :",
+    len(generated_results),
 )
+print("Output folder     :", OUTPUT_FOLDER)
+print("Metadata file     :", METADATA_PATH)
 
-print(
-    "Images expected    :",
-    len(annotations) * 5
-)
-
-print(
-    "Images generated   :",
-    len(generated_results)
-)
-
-print(
-    "Output folder      :",
-    output_folder
-)
-
-print(
-    "Metadata file      :",
-    metadata_path
-)
-
-print("\n✓ PROGRAM FINISHED\n")
+print("\nPROGRAM FINISHED\n")
