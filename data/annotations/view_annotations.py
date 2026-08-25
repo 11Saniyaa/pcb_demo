@@ -13,7 +13,7 @@ image_path = (
     PROJECT_ROOT
     / "data"
     / "originals"
-    / "pcb_04.png"
+    / "pcb_08.jpg"
 )
 
 csv_path = (
