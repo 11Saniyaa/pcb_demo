@@ -1,0 +1,8 @@
+image_id,local_filename,title,source_url,author,license,width,height,capture_date,download_date,annotation_status,notes
+pcb_02,pcb_02.jpg,Samsung SGH-D900i main printed circuit board,https://commons.wikimedia.org/wiki/File:Samsung_SGH-D900i_-_main_printed_circuit_board-8855.jpg,Raimond Spekking,CC BY-SA 4.0,1280,1280,2017-02-02,2026-08-25,pending,Smartphone PCBA
+pcb_03,pcb_03.jpg,Canon Speedlite 430EX II board 1,https://commons.wikimedia.org/wiki/File:Canon_Speedlite_430EX_II_-_board_1-7477.jpg,Raimond Spekking,CC BY-SA 4.0,1280,1280,2024-02-08,2026-08-25,pending,Flash-unit PCBA
+pcb_05,pcb_05.jpg,LG P710 Optimus L7 II main printed circuit board,https://commons.wikimedia.org/wiki/File:LG_P710_Optimus_L7_II_-_Qualcomm_PM8029_on_main_printed_circuit_board-8821.jpg,Raimond Spekking,CC BY-SA 4.0,1280,853,2017-02-02,2026-08-25,pending,Power-management IC and SMD components
+pcb_06,pcb_06.jpg,Raspberry Pi Pico 2 PCB,https://commons.wikimedia.org/wiki/File:Raspberry_PI_Pico_2_PCB_(5).jpg,Suyash Dwivedi,VERIFY_ON_SOURCE_PAGE,1280,853,2025-02-04,2026-08-25,pending,Raspberry Pi Pico 2 board
+pcb_09,pcb_09.jpg,Olympus C-960 ZOOM PCB details,SOURCE_PAGE_REQUIRED,Mister rf,CC BY-SA 4.0,1280,1162,2022-12-14,2026-08-25,pending,Confirm the exact Olympus image number and source URL
+pcb_10,pcb_10.jpg,PCB 700-1-040-417 components side,https://commons.wikimedia.org/wiki/File:PCB_700-1-040-417_26_components_side.jpg,Mister rf,CC BY-SA 4.0,1280,936,2021-10-21,2026-08-25,pending,Discrete diode-transistor logic PCBA
+pcb_11,pcb_11.jpg,Western Digital WD93044A PCB top view,https://commons.wikimedia.org/wiki/File:Western_Digital_WD93044A_PCB_top_view.jpg,Mister rf,CC BY-SA 4.0,1280,928,2022-10-19,2026-08-25,pending,Complete hard-drive PCBA
