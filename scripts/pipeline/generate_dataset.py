@@ -13,8 +13,8 @@ import numpy as np
 # PCBs that will be processed automatically
 PCB_NAMES = [
     
-    "pcb_02",
-    "pcb_03",
+    "pcb_05",
+    "pcb_06",
 ]
 
 
@@ -81,12 +81,12 @@ COMPONENT_CONFIG = {
         "dilate_iterations": 1,
     },
     "diode": {
-        "threshold_mode": "auto",
-        "kernel_size": 3,
-        "open_iterations": 1,
-        "close_iterations": 2,
-        "dilate_iterations": 1,
-    },
+    "threshold_mode": "auto",
+    "kernel_size": 3,
+    "open_iterations": 1,
+    "close_iterations": 1,
+    "dilate_iterations": 0,
+},
 }
 
 SHOW_PREVIEWS = True
@@ -309,6 +309,27 @@ for annotation in annotations:
         f"{annotation['y']}, "
         f"{annotation['width']}, "
         f"{annotation['height']})"
+    )
+
+found_components = {
+    annotation["component"]
+    for annotation in annotations
+}
+
+missing_components = (
+    SUPPORTED_COMPONENTS
+    - found_components
+)
+
+print(
+    "Components found:",
+    sorted(found_components)
+)
+
+if missing_components:
+    print(
+        "WARNING: Missing annotations:",
+        sorted(missing_components)
     )
 
 
@@ -1087,6 +1108,9 @@ for annotation in annotations:
     )
     print("--------------------------------------")
 
+    # ----------------------------------------------
+    # Validate bounding box
+    # ----------------------------------------------
     if (
         x < 0
         or y < 0
@@ -1098,6 +1122,9 @@ for annotation in annotations:
         print("Invalid bounding box. Skipping.")
         continue
 
+    # ----------------------------------------------
+    # Crop component ROI
+    # ----------------------------------------------
     roi = image[
         y:y + height,
         x:x + width,
@@ -1105,6 +1132,9 @@ for annotation in annotations:
 
     print("ROI cropped:", roi.shape)
 
+    # ----------------------------------------------
+    # Segment component
+    # ----------------------------------------------
     (
         mask,
         threshold_value,
@@ -1116,7 +1146,9 @@ for annotation in annotations:
     )
 
     if mask is None:
-        print("Could not create mask. Skipping.")
+        print(
+            "Could not create mask. Skipping."
+        )
         continue
 
     foreground_ratio = (
@@ -1125,8 +1157,14 @@ for annotation in annotations:
     )
 
     print("Mask generated")
-    print("Method:", segmentation_method)
-    print("Score:", round(mask_score, 3))
+    print(
+        "Method:",
+        segmentation_method,
+    )
+    print(
+        "Score:",
+        round(mask_score, 3),
+    )
     print(
         "Foreground ratio:",
         round(foreground_ratio, 3),
@@ -1138,15 +1176,64 @@ for annotation in annotations:
             round(threshold_value, 2),
         )
 
+    # ----------------------------------------------
+    # GrabCut fallback
+    # ----------------------------------------------
+    # Only run GrabCut when Otsu covers too
+    # little or too much of the ROI.
     if (
         foreground_ratio < 0.02
         or foreground_ratio > 0.98
     ):
         print(
-            "Suspicious mask area. Skipping."
+            "Suspicious Otsu mask. "
+            "Trying GrabCut fallback..."
         )
-        continue
 
+        fallback_mask = create_grabcut_mask(
+            roi,
+            COMPONENT_CONFIG[component_name],
+        )
+
+        if fallback_mask is None:
+            print(
+                f"GrabCut also failed for "
+                f"{component_name}. Skipping."
+            )
+            continue
+
+        mask = fallback_mask
+
+        foreground_ratio = (
+            cv2.countNonZero(mask)
+            / (width * height)
+        )
+
+        segmentation_method = (
+            "grabcut-fallback"
+        )
+
+        mask_score = 0.5
+
+        print(
+            "GrabCut fallback successful"
+        )
+        print(
+            "New foreground ratio:",
+            round(foreground_ratio, 3),
+        )
+
+    else:
+        print(
+            "Otsu mask accepted:",
+            round(foreground_ratio, 3),
+        )
+
+    # ----------------------------------------------
+    # Save segmentation debug images
+    # ----------------------------------------------
+    # This must be outside the if/else above,
+    # but still inside the annotation loop.
     if SAVE_DEBUG_IMAGES:
         debug_prefix = (
             f"{PCB_NAME}_"
@@ -1154,10 +1241,12 @@ for annotation in annotations:
             f"{instance_number:02d}"
         )
 
-        extracted_preview = cv2.bitwise_and(
-            roi,
-            roi,
-            mask=mask,
+        extracted_preview = (
+            cv2.bitwise_and(
+                roi,
+                roi,
+                mask=mask,
+            )
         )
 
         cv2.imwrite(
@@ -1179,13 +1268,17 @@ for annotation in annotations:
         cv2.imwrite(
             str(
                 DEBUG_FOLDER
-                / f"{debug_prefix}_extracted.png"
+                / (
+                    f"{debug_prefix}_"
+                    f"extracted.png"
+                )
             ),
             extracted_preview,
         )
 
-    # Remove the selected component only from
-    # an in-memory copy. Original file is untouched.
+    # ----------------------------------------------
+    # Remove original component
+    # ----------------------------------------------
     background = remove_original_component(
         image,
         mask,
@@ -1195,8 +1288,12 @@ for annotation in annotations:
         height,
     )
 
+    # Keep your existing augmentation code here.
+    # It must remain indented inside this loop.
     augmentations = []
 
+    # Your rotate, flip and move augmentation
+    # definitions continue below this line.
     # --------------------------------------------------
     # 1. ROTATE 5 DEGREES
     # --------------------------------------------------

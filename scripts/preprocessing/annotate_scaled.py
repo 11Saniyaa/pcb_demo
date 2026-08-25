@@ -20,8 +20,9 @@ ANNOTATION_DIR.mkdir(parents=True, exist_ok=True)
 # 2. IMAGES AND COMPONENTS
 # ==================================================
 IMAGE_NAMES = [
-    "pcb_02.jpg",
-    "pcb_03.jpg",
+    "pcb_09.jpg",
+    "pcb_10.jpg",
+    "pcb_11.jpg",
 ]
 
 COMPONENTS = [

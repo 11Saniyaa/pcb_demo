@@ -99,28 +99,52 @@ pcb_02.jpg,pcb_02_ic_01_flip_horizontal.png,ic,flip,horizontal,249,188,249,188,3
 pcb_02.jpg,pcb_02_ic_01_move_10px.png,ic,move,+10 px x-direction,249,188,259,188,348,126
 pcb_02.jpg,pcb_02_ic_01_move_25px.png,ic,move,+25 px x-direction,249,188,274,188,348,126
 pcb_02.jpg,pcb_02_ic_01_rotate_15.png,ic,rotate,+15 degrees,249,188,239,145,369,212
-pcb_02.jpg,pcb_02_resistor_01_rotate_05.png,resistor,rotate,+5 degrees,674,177,671,176,32,63
-pcb_02.jpg,pcb_02_resistor_01_flip_horizontal.png,resistor,flip,horizontal,674,177,674,177,26,60
-pcb_02.jpg,pcb_02_resistor_01_move_10px.png,resistor,move,+10 px x-direction,674,177,684,177,26,60
-pcb_02.jpg,pcb_02_resistor_01_move_25px.png,resistor,move,+25 px x-direction,674,177,699,177,26,60
-pcb_02.jpg,pcb_02_resistor_01_rotate_15.png,resistor,rotate,+15 degrees,674,177,667,175,41,65
 pcb_02.jpg,pcb_02_capacitor_01_rotate_05.png,capacitor,rotate,+5 degrees,649,340,648,338,41,24
 pcb_02.jpg,pcb_02_capacitor_01_flip_horizontal.png,capacitor,flip,horizontal,649,340,649,340,39,20
 pcb_02.jpg,pcb_02_capacitor_01_move_10px.png,capacitor,move,+10 px x-direction,649,340,659,340,39,20
 pcb_02.jpg,pcb_02_capacitor_01_move_25px.png,capacitor,move,+25 px x-direction,649,340,674,340,39,20
 pcb_02.jpg,pcb_02_capacitor_01_rotate_15.png,capacitor,rotate,+15 degrees,649,340,647,335,43,30
-pcb_03.jpg,pcb_03_ic_01_rotate_05.png,ic,rotate,+5 degrees,509,203,507,198,126,67
-pcb_03.jpg,pcb_03_ic_01_flip_horizontal.png,ic,flip,horizontal,509,203,509,203,121,56
-pcb_03.jpg,pcb_03_ic_01_move_10px.png,ic,move,+10 px x-direction,509,203,519,203,121,56
-pcb_03.jpg,pcb_03_ic_01_move_25px.png,ic,move,+25 px x-direction,509,203,534,203,121,56
-pcb_03.jpg,pcb_03_ic_01_rotate_15.png,ic,rotate,+15 degrees,509,203,504,188,132,86
-pcb_03.jpg,pcb_03_resistor_01_rotate_05.png,resistor,rotate,+5 degrees,649,942,648,940,39,30
-pcb_03.jpg,pcb_03_resistor_01_flip_horizontal.png,resistor,flip,horizontal,649,942,649,942,36,26
-pcb_03.jpg,pcb_03_resistor_01_move_10px.png,resistor,move,+10 px x-direction,649,942,659,942,36,26
-pcb_03.jpg,pcb_03_resistor_01_move_25px.png,resistor,move,+25 px x-direction,649,942,674,942,36,26
-pcb_03.jpg,pcb_03_resistor_01_rotate_15.png,resistor,rotate,+15 degrees,649,942,646,938,42,35
-pcb_03.jpg,pcb_03_diode_01_rotate_05.png,diode,rotate,+5 degrees,729,218,728,216,41,36
-pcb_03.jpg,pcb_03_diode_01_flip_horizontal.png,diode,flip,horizontal,729,218,729,218,38,32
-pcb_03.jpg,pcb_03_diode_01_move_10px.png,diode,move,+10 px x-direction,729,218,739,218,38,32
-pcb_03.jpg,pcb_03_diode_01_move_25px.png,diode,move,+25 px x-direction,729,218,754,218,38,32
-pcb_03.jpg,pcb_03_diode_01_rotate_15.png,diode,rotate,+15 degrees,729,218,726,214,45,41
+pcb_03.jpg,pcb_03_capacitor_01_rotate_05.png,capacitor,rotate,+5 degrees,937,555,934,554,37,71
+pcb_03.jpg,pcb_03_capacitor_01_flip_horizontal.png,capacitor,flip,horizontal,937,555,937,555,31,68
+pcb_03.jpg,pcb_03_capacitor_01_move_10px.png,capacitor,move,+10 px x-direction,937,555,947,555,31,68
+pcb_03.jpg,pcb_03_capacitor_01_move_25px.png,capacitor,move,+25 px x-direction,937,555,962,555,31,68
+pcb_03.jpg,pcb_03_capacitor_01_rotate_15.png,capacitor,rotate,+15 degrees,937,555,929,552,48,74
+pcb_05.jpg,pcb_05_ic_01_rotate_05.png,ic,rotate,+5 degrees,11,80,2,72,208,237
+pcb_05.jpg,pcb_05_ic_01_flip_horizontal.png,ic,flip,horizontal,11,80,11,80,189,221
+pcb_05.jpg,pcb_05_ic_01_move_10px.png,ic,move,+10 px x-direction,11,80,21,80,189,221
+pcb_05.jpg,pcb_05_ic_01_move_25px.png,ic,move,+25 px x-direction,11,80,36,80,189,221
+pcb_05.jpg,pcb_05_resistor_01_rotate_05.png,resistor,rotate,+5 degrees,329,157,327,156,24,41
+pcb_05.jpg,pcb_05_resistor_01_flip_horizontal.png,resistor,flip,horizontal,329,157,329,157,20,39
+pcb_05.jpg,pcb_05_resistor_01_move_10px.png,resistor,move,+10 px x-direction,329,157,339,157,20,39
+pcb_05.jpg,pcb_05_resistor_01_move_25px.png,resistor,move,+25 px x-direction,329,157,354,157,20,39
+pcb_05.jpg,pcb_05_resistor_01_rotate_15.png,resistor,rotate,+15 degrees,329,157,324,155,30,43
+pcb_05.jpg,pcb_05_capacitor_01_rotate_05.png,capacitor,rotate,+5 degrees,371,199,367,197,59,104
+pcb_05.jpg,pcb_05_capacitor_01_flip_horizontal.png,capacitor,flip,horizontal,371,199,371,199,50,100
+pcb_05.jpg,pcb_05_capacitor_01_move_10px.png,capacitor,move,+10 px x-direction,371,199,381,199,50,100
+pcb_05.jpg,pcb_05_capacitor_01_move_25px.png,capacitor,move,+25 px x-direction,371,199,396,199,50,100
+pcb_05.jpg,pcb_05_capacitor_01_rotate_15.png,capacitor,rotate,+15 degrees,371,199,359,194,75,110
+pcb_05.jpg,pcb_05_diode_01_rotate_05.png,diode,rotate,+5 degrees,1178,68,1175,67,35,76
+pcb_05.jpg,pcb_05_diode_01_flip_horizontal.png,diode,flip,horizontal,1178,68,1178,68,28,73
+pcb_05.jpg,pcb_05_diode_01_move_10px.png,diode,move,+10 px x-direction,1178,68,1188,68,28,73
+pcb_05.jpg,pcb_05_diode_01_move_25px.png,diode,move,+25 px x-direction,1178,68,1203,68,28,73
+pcb_05.jpg,pcb_05_diode_01_rotate_15.png,diode,rotate,+15 degrees,1178,68,1169,66,46,78
+pcb_06.jpg,pcb_06_ic_01_rotate_05.png,ic,rotate,+5 degrees,738,305,736,301,94,49
+pcb_06.jpg,pcb_06_ic_01_flip_horizontal.png,ic,flip,horizontal,738,305,738,305,90,41
+pcb_06.jpg,pcb_06_ic_01_move_10px.png,ic,move,+10 px x-direction,738,305,748,305,90,41
+pcb_06.jpg,pcb_06_ic_01_move_25px.png,ic,move,+25 px x-direction,738,305,763,305,90,41
+pcb_06.jpg,pcb_06_ic_01_rotate_15.png,ic,rotate,+15 degrees,738,305,734,294,98,63
+pcb_06.jpg,pcb_06_resistor_01_rotate_05.png,resistor,rotate,+5 degrees,638,533,637,532,28,19
+pcb_06.jpg,pcb_06_resistor_01_flip_horizontal.png,resistor,flip,horizontal,638,533,638,533,26,16
+pcb_06.jpg,pcb_06_resistor_01_move_10px.png,resistor,move,+10 px x-direction,638,533,648,533,26,16
+pcb_06.jpg,pcb_06_resistor_01_move_25px.png,resistor,move,+25 px x-direction,638,533,663,533,26,16
+pcb_06.jpg,pcb_06_resistor_01_rotate_15.png,resistor,rotate,+15 degrees,638,533,636,530,30,23
+pcb_06.jpg,pcb_06_capacitor_01_rotate_05.png,capacitor,rotate,+5 degrees,885,445,883,444,37,54
+pcb_06.jpg,pcb_06_capacitor_01_flip_horizontal.png,capacitor,flip,horizontal,885,445,885,445,32,51
+pcb_06.jpg,pcb_06_capacitor_01_move_10px.png,capacitor,move,+10 px x-direction,885,445,895,445,32,51
+pcb_06.jpg,pcb_06_capacitor_01_move_25px.png,capacitor,move,+25 px x-direction,885,445,910,445,32,51
+pcb_06.jpg,pcb_06_capacitor_01_rotate_15.png,capacitor,rotate,+15 degrees,885,445,879,442,45,58
+pcb_06.jpg,pcb_06_diode_01_rotate_05.png,diode,rotate,+5 degrees,792,521,791,520,21,37
+pcb_06.jpg,pcb_06_diode_01_flip_horizontal.png,diode,flip,horizontal,792,521,792,521,18,35
+pcb_06.jpg,pcb_06_diode_01_move_10px.png,diode,move,+10 px x-direction,792,521,802,521,18,35
+pcb_06.jpg,pcb_06_diode_01_move_25px.png,diode,move,+25 px x-direction,792,521,817,521,18,35
+pcb_06.jpg,pcb_06_diode_01_rotate_15.png,diode,rotate,+15 degrees,792,521,788,519,27,39
