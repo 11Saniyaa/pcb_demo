@@ -9,19 +9,48 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ORIGINALS_DIR = PROJECT_ROOT / "data" / "originals"
 ANNOTATIONS_PATH = PROJECT_ROOT / "data" / "annotations" / "annotations.csv"
 DEMO_OUTPUT_DIR = PROJECT_ROOT / "data" / "augmented" / "demo"
+DEBUG_OUTPUT_DIR = DEMO_OUTPUT_DIR / "debug"
+METADATA_PATH = PROJECT_ROOT / "data" / "augmented" / "augmentation_metadata.csv"
 
 SUPPORTED_COMPONENTS = {"ic", "resistor", "capacitor", "diode"}
+SUPPORTED_IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg")
 
 COMPONENT_CONFIG = {
-    name: {
+    "ic": {
         "threshold_mode": "auto",
         "kernel_size": 3,
         "open_iterations": 1,
         "close_iterations": 2,
         "dilate_iterations": 1,
-    }
-    for name in SUPPORTED_COMPONENTS
+    },
+    "resistor": {
+        "threshold_mode": "auto",
+        "kernel_size": 3,
+        "open_iterations": 1,
+        "close_iterations": 2,
+        "dilate_iterations": 1,
+    },
+    "capacitor": {
+        "threshold_mode": "auto",
+        "kernel_size": 3,
+        "open_iterations": 1,
+        "close_iterations": 2,
+        "dilate_iterations": 1,
+    },
+    "diode": {
+        "threshold_mode": "auto",
+        "kernel_size": 3,
+        "open_iterations": 1,
+        "close_iterations": 1,
+        "dilate_iterations": 0,
+    },
 }
+
+SAVE_DEBUG_IMAGES = True
+BOX_COLOUR = (0, 0, 255)
+BOX_THICKNESS = 3
+BOX_PADDING_RATIO = 0.15
+MINIMUM_BOX_PADDING = 12
 
 DEFECTS = {
     "rotate_05": {
@@ -72,11 +101,28 @@ DEFECTS = {
     },
 }
 
+METADATA_HEADER = [
+    "original_image",
+    "augmented_image",
+    "component",
+    "instance",
+    "augmentation_type",
+    "parameter",
+    "old_x",
+    "old_y",
+    "new_x",
+    "new_y",
+    "width",
+    "height",
+    "segmentation_method",
+    "mask_score",
+]
+
 
 def _row_value(row, *keys):
     for key in keys:
         value = row.get(key)
-        if value is not None and str(value).strip() != "":
+        if value is not None and str(value).strip():
             return str(value).strip()
     raise KeyError(keys)
 
@@ -92,8 +138,8 @@ def load_all_annotations():
             if not any((raw or {}).values()):
                 continue
             try:
-                image_name = _row_value(raw, "image", "image", "file")
-                component = _row_value(raw, "component", "component", "class").lower()
+                image_name = _row_value(raw, "image", "file")
+                component = _row_value(raw, "component", "class").lower()
                 x = int(_row_value(raw, "x"))
                 y = int(_row_value(raw, "y"))
                 width = int(_row_value(raw, "width"))
@@ -118,6 +164,17 @@ def load_all_annotations():
     return rows
 
 
+def _find_original_image(board_id):
+    for extension in SUPPORTED_IMAGE_EXTENSIONS:
+        candidate = ORIGINALS_DIR / f"{board_id}{extension}"
+        if candidate.exists():
+            return candidate
+    raise FileNotFoundError(
+        f"Board image not found: {board_id} "
+        f"(supported: {', '.join(SUPPORTED_IMAGE_EXTENSIONS)})"
+    )
+
+
 _BOARD_CACHE = None
 _BOARD_CACHE_MTIME = None
 
@@ -133,9 +190,13 @@ def list_boards():
     for row in annotations:
         by_board.setdefault(row["board"], []).append(row)
 
+    image_paths = {}
+    for extension in SUPPORTED_IMAGE_EXTENSIONS:
+        for path in ORIGINALS_DIR.glob(f"pcb_*{extension}"):
+            image_paths.setdefault(path.stem, path)
+
     boards = []
-    for image_path in sorted(ORIGINALS_DIR.glob("pcb_*.png")):
-        board_id = image_path.stem
+    for board_id, image_path in sorted(image_paths.items()):
         items = by_board.get(board_id, [])
         counts = {}
         components = []
@@ -153,7 +214,7 @@ def list_boards():
             )
 
         image = cv2.imread(str(image_path))
-        height, width = (image.shape[:2] if image is not None else (0, 0))
+        height, width = image.shape[:2] if image is not None else (0, 0)
         boards.append(
             {
                 "id": board_id,
@@ -164,6 +225,7 @@ def list_boards():
                 "components": components,
             }
         )
+
     _BOARD_CACHE = boards
     _BOARD_CACHE_MTIME = mtime
     return boards
@@ -177,19 +239,22 @@ def get_board(board_id):
 
 
 def original_image_path(board_id):
-    path = ORIGINALS_DIR / f"{board_id}.png"
-    if not path.exists():
-        raise FileNotFoundError(f"Board image not found: {board_id}")
-    return path
+    return _find_original_image(board_id)
 
 
 def clean_binary_mask(binary_mask, config):
-    kernel = np.ones((config["kernel_size"], config["kernel_size"]), dtype=np.uint8)
+    kernel = np.ones((config["kernel_size"], config["kernel_size"]), np.uint8)
     cleaned = cv2.morphologyEx(
-        binary_mask, cv2.MORPH_OPEN, kernel, iterations=config["open_iterations"]
+        binary_mask,
+        cv2.MORPH_OPEN,
+        kernel,
+        iterations=config["open_iterations"],
     )
     return cv2.morphologyEx(
-        cleaned, cv2.MORPH_CLOSE, kernel, iterations=config["close_iterations"]
+        cleaned,
+        cv2.MORPH_CLOSE,
+        kernel,
+        iterations=config["close_iterations"],
     )
 
 
@@ -242,11 +307,11 @@ def create_candidate_mask(gray, threshold_type, config):
         return None, -1, otsu_value
 
     final_mask = np.zeros_like(binary_mask)
-    cv2.drawContours(final_mask, [best_contour], -1, 255, thickness=cv2.FILLED)
+    cv2.drawContours(final_mask, [best_contour], -1, 255, cv2.FILLED)
     if config["dilate_iterations"] > 0:
         final_mask = cv2.dilate(
             final_mask,
-            np.ones((3, 3), dtype=np.uint8),
+            np.ones((3, 3), np.uint8),
             iterations=config["dilate_iterations"],
         )
     return final_mask, best_score, otsu_value
@@ -257,13 +322,13 @@ def create_grabcut_mask(roi, config):
     if roi_height < 5 or roi_width < 5:
         return None
 
-    grabcut_mask = np.zeros((roi_height, roi_width), dtype=np.uint8)
-    background_model = np.zeros((1, 65), dtype=np.float64)
-    foreground_model = np.zeros((1, 65), dtype=np.float64)
+    grabcut_mask = np.zeros((roi_height, roi_width), np.uint8)
+    background_model = np.zeros((1, 65), np.float64)
+    foreground_model = np.zeros((1, 65), np.float64)
     margin_x = max(2, int(roi_width * 0.02))
     margin_y = max(2, int(roi_height * 0.02))
-    rectangle_width = roi_width - (2 * margin_x)
-    rectangle_height = roi_height - (2 * margin_y)
+    rectangle_width = roi_width - 2 * margin_x
+    rectangle_height = roi_height - 2 * margin_y
     if rectangle_width <= 0 or rectangle_height <= 0:
         return None
 
@@ -285,12 +350,12 @@ def create_grabcut_mask(roi, config):
         255,
         0,
     ).astype(np.uint8)
-    kernel = np.ones((config["kernel_size"], config["kernel_size"]), dtype=np.uint8)
+    kernel = np.ones((config["kernel_size"], config["kernel_size"]), np.uint8)
     final_mask = cv2.morphologyEx(final_mask, cv2.MORPH_CLOSE, kernel, iterations=1)
     if config["dilate_iterations"] > 0:
         final_mask = cv2.dilate(
             final_mask,
-            np.ones((3, 3), dtype=np.uint8),
+            np.ones((3, 3), np.uint8),
             iterations=config["dilate_iterations"],
         )
 
@@ -304,17 +369,20 @@ def segment_component(roi, component_name):
     config = COMPONENT_CONFIG[component_name]
     gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     candidates = []
+    threshold_mode = config["threshold_mode"]
 
-    normal_mask, normal_score, normal_threshold = create_candidate_mask(
-        gray, cv2.THRESH_BINARY, config
-    )
-    inverse_mask, inverse_score, inverse_threshold = create_candidate_mask(
-        gray, cv2.THRESH_BINARY_INV, config
-    )
-    if normal_mask is not None:
-        candidates.append((normal_mask, normal_threshold, "normal", normal_score))
-    if inverse_mask is not None:
-        candidates.append((inverse_mask, inverse_threshold, "inverse", inverse_score))
+    if threshold_mode in {"auto", "normal"}:
+        mask, score, threshold = create_candidate_mask(gray, cv2.THRESH_BINARY, config)
+        if mask is not None:
+            candidates.append((mask, threshold, "normal", score))
+
+    if threshold_mode in {"auto", "inverse"}:
+        mask, score, threshold = create_candidate_mask(
+            gray, cv2.THRESH_BINARY_INV, config
+        )
+        if mask is not None:
+            candidates.append((mask, threshold, "inverse", score))
+
     if candidates:
         return max(candidates, key=lambda item: item[3])
 
@@ -325,9 +393,9 @@ def segment_component(roi, component_name):
 
 
 def remove_original_component(original_image, component_mask, x, y, width, height):
-    full_mask = np.zeros(original_image.shape[:2], dtype=np.uint8)
+    full_mask = np.zeros(original_image.shape[:2], np.uint8)
     full_mask[y : y + height, x : x + width] = component_mask
-    full_mask = cv2.dilate(full_mask, np.ones((5, 5), dtype=np.uint8), iterations=1)
+    full_mask = cv2.dilate(full_mask, np.ones((5, 5), np.uint8), iterations=1)
     return cv2.inpaint(original_image, full_mask, 3, cv2.INPAINT_TELEA)
 
 
@@ -346,13 +414,15 @@ def paste_component(base_image, component_roi, component_mask, new_x, new_y):
         new_y : new_y + component_height, new_x : new_x + component_width
     ]
     inverse_mask = cv2.bitwise_not(component_mask)
-    destination_background = cv2.bitwise_and(destination, destination, mask=inverse_mask)
+    destination_background = cv2.bitwise_and(
+        destination, destination, mask=inverse_mask
+    )
     component_foreground = cv2.bitwise_and(
         component_roi, component_roi, mask=component_mask
     )
-    result[new_y : new_y + component_height, new_x : new_x + component_width] = cv2.add(
-        destination_background, component_foreground
-    )
+    result[
+        new_y : new_y + component_height, new_x : new_x + component_width
+    ] = cv2.add(destination_background, component_foreground)
     return result
 
 
@@ -362,8 +432,8 @@ def rotate_component_expanded(component_roi, component_mask, angle):
     rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
     cosine = abs(rotation_matrix[0, 0])
     sine = abs(rotation_matrix[0, 1])
-    new_width = int(np.ceil((height * sine) + (width * cosine)))
-    new_height = int(np.ceil((height * cosine) + (width * sine)))
+    new_width = int(np.ceil(height * sine + width * cosine))
+    new_height = int(np.ceil(height * cosine + width * sine))
     rotation_matrix[0, 2] += new_width / 2 - center[0]
     rotation_matrix[1, 2] += new_height / 2 - center[1]
 
@@ -389,7 +459,9 @@ def rotate_component_expanded(component_roi, component_mask, angle):
 
 def _build_augmentation(roi, mask, x, y, width, height, defect):
     if defect["type"] == "rotate":
-        rotated_roi, rotated_mask = rotate_component_expanded(roi, mask, defect["angle"])
+        rotated_roi, rotated_mask = rotate_component_expanded(
+            roi, mask, defect["angle"]
+        )
         rotated_height, rotated_width = rotated_roi.shape[:2]
         return {
             "image": rotated_roi,
@@ -414,6 +486,99 @@ def _build_augmentation(roi, mask, x, y, width, height, defect):
     raise ValueError(f"Unsupported defect type: {defect['type']}")
 
 
+def draw_defect_box(
+    generated_image,
+    component_name,
+    augmentation_type,
+    new_x,
+    new_y,
+    width,
+    height,
+):
+    boxed_image = generated_image.copy()
+    image_height, image_width = boxed_image.shape[:2]
+    padding = max(
+        MINIMUM_BOX_PADDING,
+        round(max(width, height) * BOX_PADDING_RATIO),
+    )
+    box_x1 = max(0, new_x - padding)
+    box_y1 = max(0, new_y - padding)
+    box_x2 = min(image_width - 1, new_x + width + padding)
+    box_y2 = min(image_height - 1, new_y + height + padding)
+
+    cv2.rectangle(
+        boxed_image,
+        (box_x1, box_y1),
+        (box_x2, box_y2),
+        BOX_COLOUR,
+        BOX_THICKNESS,
+    )
+
+    label = f"DEFECT: {component_name.upper()} {augmentation_type.upper()}"
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    font_scale = 0.6
+    text_thickness = 2
+    (text_width, text_height), _ = cv2.getTextSize(
+        label, font, font_scale, text_thickness
+    )
+
+    label_x1 = box_x1
+    label_y2 = box_y1
+    label_y1 = max(0, label_y2 - text_height - 12)
+    label_x2 = min(image_width - 1, label_x1 + text_width + 10)
+    cv2.rectangle(
+        boxed_image,
+        (label_x1, label_y1),
+        (label_x2, label_y2),
+        BOX_COLOUR,
+        cv2.FILLED,
+    )
+    text_y = max(text_height, label_y2 - 6)
+    cv2.putText(
+        boxed_image,
+        label,
+        (label_x1 + 5, text_y),
+        font,
+        font_scale,
+        (255, 255, 255),
+        text_thickness,
+        cv2.LINE_AA,
+    )
+    return boxed_image
+
+
+def _save_debug_images(board_id, component, instance, roi, mask):
+    if not SAVE_DEBUG_IMAGES:
+        return
+
+    DEBUG_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    prefix = f"{board_id}_{component}_{instance:02d}"
+    extracted = cv2.bitwise_and(roi, roi, mask=mask)
+    cv2.imwrite(str(DEBUG_OUTPUT_DIR / f"{prefix}_roi.png"), roi)
+    cv2.imwrite(str(DEBUG_OUTPUT_DIR / f"{prefix}_mask.png"), mask)
+    cv2.imwrite(str(DEBUG_OUTPUT_DIR / f"{prefix}_extracted.png"), extracted)
+
+
+def _update_metadata(row):
+    METADATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    existing_rows = []
+    if METADATA_PATH.exists():
+        with METADATA_PATH.open("r", newline="", encoding="utf-8") as handle:
+            reader = csv.DictReader(handle)
+            for existing in reader:
+                same_output = existing.get("augmented_image") == row["augmented_image"]
+                if not same_output:
+                    existing_rows.append(
+                        {column: existing.get(column, "") for column in METADATA_HEADER}
+                    )
+
+    existing_rows.append(row)
+    with METADATA_PATH.open("w", newline="", encoding="utf-8") as handle:
+        writer = csv.DictWriter(handle, fieldnames=METADATA_HEADER)
+        writer.writeheader()
+        writer.writerows(existing_rows)
+
+
 def encode_jpeg(image, max_width=1400, quality=85):
     output = image
     height, width = image.shape[:2]
@@ -424,7 +589,9 @@ def encode_jpeg(image, max_width=1400, quality=85):
             (int(width * scale), int(height * scale)),
             interpolation=cv2.INTER_AREA,
         )
-    ok, buffer = cv2.imencode(".jpg", output, [int(cv2.IMWRITE_JPEG_QUALITY), quality])
+    ok, buffer = cv2.imencode(
+        ".jpg", output, [int(cv2.IMWRITE_JPEG_QUALITY), quality]
+    )
     if not ok:
         raise RuntimeError("Could not encode image")
     return buffer.tobytes()
@@ -452,9 +619,10 @@ def generate_defect(board_id, component, instance, defect_id):
         )
 
     annotation = matches[instance - 1]
-    image = cv2.imread(str(original_image_path(board_id)))
+    source_path = original_image_path(board_id)
+    image = cv2.imread(str(source_path))
     if image is None:
-        raise FileNotFoundError(f"Could not read {board_id}.png")
+        raise FileNotFoundError(f"Could not read {source_path.name}")
 
     image_height, image_width = image.shape[:2]
     x = annotation["x"]
@@ -473,30 +641,68 @@ def generate_defect(board_id, component, instance, defect_id):
 
     foreground_ratio = cv2.countNonZero(mask) / (width * height)
     if foreground_ratio < 0.02 or foreground_ratio > 0.98:
-        raise RuntimeError("Component mask looks unreliable")
+        fallback_mask = create_grabcut_mask(roi, COMPONENT_CONFIG[component])
+        if fallback_mask is None:
+            raise RuntimeError("Component mask looks unreliable")
+        mask = fallback_mask
+        method = "grabcut-fallback"
+        score = 0.5
+
+    _save_debug_images(board_id, component, instance, roi, mask)
 
     background = remove_original_component(image, mask, x, y, width, height)
     defect = DEFECTS[defect_id]
     augmentation = _build_augmentation(roi, mask, x, y, width, height, defect)
+    new_x = int(augmentation["new_x"])
+    new_y = int(augmentation["new_y"])
     result = paste_component(
         background,
         augmentation["image"],
         augmentation["mask"],
-        int(augmentation["new_x"]),
-        int(augmentation["new_y"]),
+        new_x,
+        new_y,
     )
     if result is None:
         raise RuntimeError(
             "Defect crossed the image boundary. Try another fault or part."
         )
 
+    new_height, new_width = augmentation["image"].shape[:2]
+    boxed_result = draw_defect_box(
+        result,
+        component,
+        defect["type"],
+        new_x,
+        new_y,
+        new_width,
+        new_height,
+    )
+
     DEMO_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     filename = f"{board_id}_{component}_{instance:02d}_{defect['suffix']}.png"
     output_path = DEMO_OUTPUT_DIR / filename
-    if not cv2.imwrite(str(output_path), result):
+    if not cv2.imwrite(str(output_path), boxed_result):
         raise RuntimeError("Could not save generated image")
 
-    new_height, new_width = augmentation["image"].shape[:2]
+    _update_metadata(
+        {
+            "original_image": source_path.name,
+            "augmented_image": filename,
+            "component": component,
+            "instance": instance,
+            "augmentation_type": defect["type"],
+            "parameter": defect["parameter"],
+            "old_x": x,
+            "old_y": y,
+            "new_x": new_x,
+            "new_y": new_y,
+            "width": new_width,
+            "height": new_height,
+            "segmentation_method": method,
+            "mask_score": round(float(score), 3),
+        }
+    )
+
     return {
         "board": board_id,
         "component": component,
@@ -507,8 +713,8 @@ def generate_defect(board_id, component, instance, defect_id):
         "mask_score": round(float(score), 3),
         "original_box": {"x": x, "y": y, "width": width, "height": height},
         "defect_box": {
-            "x": int(augmentation["new_x"]),
-            "y": int(augmentation["new_y"]),
+            "x": new_x,
+            "y": new_y,
             "width": int(new_width),
             "height": int(new_height),
         },
