@@ -42,9 +42,16 @@ pcb_08.jpg,resistor,946,134,45,30
 pcb_08.jpg,capacitor,1006,624,53,29
 pcb_08.jpg,diode,401,146,45,84
 
+pcb_09.jpg,IC,477,471,194,184
+pcb_09.jpg,resistor,545,395,25,48
+pcb_09.jpg,capacitor,514,834,71,40
+pcb_09.jpg,diode,446,211,26,71
 
-pcb_09.png,IC,1214,320,246,216
-pcb_09.png,resistor,1644,998,136,56
-pcb_09.png,capacitor,1020,482,136,160
-pcb_09.png,diode,995,392,50,23
+pcb_10.jpg,IC,215,1032,325,322
+pcb_10.jpg,capacitor,193,706,77,46
+pcb_10.jpg,diode,270,676,55,80
 
+pcb_11.jpg,IC,684,629,120,115
+pcb_11.jpg,resistor,683,557,33,17
+pcb_11.jpg,capacitor,616,127,25,47
+pcb_11.jpg,diode,833,756,31,66

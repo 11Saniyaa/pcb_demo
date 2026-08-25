@@ -13,8 +13,9 @@ import numpy as np
 # PCBs that will be processed automatically
 PCB_NAMES = [
     
-    "pcb_05",
-    "pcb_06",
+    "pcb_09",
+    "pcb_10",
+    "pcb_11",
 ]
 
 
