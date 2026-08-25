@@ -5,7 +5,15 @@ pcb_01.png,resistor,310,478,71,23
 pcb_01.png,capacitor,536,338,56,22
 pcb_01.png,diode,353,223,120,42
 
+pcb_02.jpg,IC,249,188,348,126
+pcb_02.jpg,resistor,674,177,26,60
+pcb_02.jpg,capacitor,649,340,39,20
+pcb_02.jpg,diode,309,584,44,17
 
+pcb_03.jpg,IC,509,203,121,56
+pcb_03.jpg,resistor,649,942,36,26
+pcb_03.jpg,capacitor,937,555,31,68
+pcb_03.jpg,diode,729,218,38,32
 
 
 pcb_04.png,IC,1347,548,480,444
@@ -29,4 +37,5 @@ pcb_09.png,IC,1214,320,246,216
 pcb_09.png,resistor,1644,998,136,56
 pcb_09.png,capacitor,1020,482,136,160
 pcb_09.png,diode,995,392,50,23
+
 
